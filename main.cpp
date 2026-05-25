@@ -4,7 +4,8 @@
 #include <random>
 #include <cmath>
 
-class UF {
+
+class UF { // Чтобы находить открытые кластеры в массиве
 private:
     std::vector<int> parent;
     std::vector<int> size;
