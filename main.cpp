@@ -1,5 +1,8 @@
 #include <iostream>
 #include <vector>
+#include <algorithm>
+#include <random>
+#include <cmath>
 
 class UF {
 private:
@@ -73,40 +76,88 @@ public:
 class PercolationStats
 {
 private:
-    
+    int trials;
+    int dimension;
+    double mean = 0;
+    double stddev = 0;
+    double confidence_low = 0;
+    double confidence_high = 0;
 public:
     /**
      * Construct a new Percolation Stats object
      * @param dimension dimension of percolation grid
      * @param trials amount of experiments
      */
-    PercolationStats(std::size_t dimension, std::size_t trials);
+    PercolationStats(int dimension_, int trials_) 
+        : dimension(dimension_), trials(trials_) {}
 
     /**
      * Returns mean of percolation threshold (x¯ from description)
      */
-    double get_mean() const;
+    double get_mean() const{ return mean; }
 
     /**
      * Returns standard deviation of percolation threshold (s from description)
      */
-    double get_standard_deviation() const;
+    double get_standard_deviation() const { return stddev; }
 
     /**
      * Returns log edge of condidence interval
      */
-    double get_confidence_low() const;
+    double get_confidence_low() const { return confidence_low; }
 
     /**
      * Returns high edge of confidence interval
      */
-    double get_confidence_high() const;
+    double get_confidence_high() const { return confidence_high; }
 
     /**
      * Makes all experiments, calculates statistic values
      */
-    void execute();
+    void execute(){
+        std::vector<double> thresholds(trials);
+        std::random_device rd;
+        std::mt19937 g(rd());
+        for (int t = 0; t < trials; ++t){
+            Percolation p(dimension);
+            std::vector<int> indexes(dimension * dimension);
+            for (int i = 0; i < dimension * dimension; ++i){
+                indexes[i] = i;
+            }
+            
+            std::shuffle(indexes.begin(), indexes.end(), g);
+            
+            for (int idx : indexes){
+                int row, col;
+                row = idx / dimension;
+                col = idx % dimension;
+                p.open(row, col);
+                if (p.is_percolated()){
+                    double threshold = ((double)p.number_of_open_cells() / (dimension * dimension));
+                    thresholds[t] = threshold;
+                    break;
+                }
+            }
+        }
+        double sum = 0.0;
+        for (double x : thresholds) sum += x;
+        mean = sum / trials;
+
+        double sq_sum = 0.0;
+        for (double x : thresholds) sq_sum += (x - mean) * (x - mean);
+        stddev = std::sqrt(sq_sum / (trials - 1));
+
+        const double z = 1.96;
+        confidence_low = mean - z * stddev / std::sqrt(trials);
+        confidence_high = mean + z * stddev / std::sqrt(trials);
+    }
 };
 int main(){
+    PercolationStats stats(200, 100);
+    stats.execute();
+    std::cout << "mean = " << stats.get_mean() << '\n';
+    std::cout << "stddev = " << stats.get_standard_deviation() << '\n';
+    std::cout << "95\% CI: [" << stats.get_confidence_low() << ','
+              << stats.get_confidence_high() << "]\n";
     return 0;
 }
